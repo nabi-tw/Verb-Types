@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>動詞分組練習</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-white to-gray-50 p-6 flex items-start justify-center">
+  <div id="app" class="w-full max-w-2xl bg-white shadow-lg rounded-2xl p-6">
+    <header class="flex items-center justify-between mb-4">
+      <h1 class="text-2xl font-semibold">動詞分組練習</h1>
+      <div id="progress" class="text-sm text-gray-600">題目 0 / 0</div>
+    </header>
+
+    <main class="space-y-6">
+      <div class="rounded-lg border border-dashed border-gray-200 p-8 text-center">
+        <div id="currentVerb" class="text-4xl font-bold mb-2">—</div>
+        <div class="text-sm text-gray-500">這個動詞屬於哪一組？（1 / 2 / 3）</div>
+      </div>
+
+      <div class="flex gap-3 justify-center">
+        <button id="btn1" class="px-5 py-3 rounded-lg border hover:scale-105 transform transition shadow-sm bg-white" aria-label="グループ 1">1</button>
+        <button id="btn2" class="px-5 py-3 rounded-lg border hover:scale-105 transform transition shadow-sm bg-white" aria-label="グループ 2">2</button>
+        <button id="btn3" class="px-5 py-3 rounded-lg border hover:scale-105 transform transition shadow-sm bg-white" aria-label="グループ 3">3</button>
+      </div>
+
+      <div class="flex items-center justify-center gap-3">
+        <button id="nextBtn" class="px-4 py-2 rounded-lg bg-gray-100">下一題（空格）</button>
+        <button id="toggleAnswerBtn" class="px-4 py-2 rounded-lg bg-gray-100">顯示答案</button>
+        <button id="restartBtn" class="px-4 py-2 rounded-lg bg-blue-600 text-white">重新開始</button>
+      </div>
+
+      <div class="text-center">
+        <div id="lastResultContainer"></div>
+      </div>
+
+      <div id="answerPanel" class="hidden p-4 bg-gray-50 rounded-lg text-center text-sm text-gray-700">
+        <div>正確分組: <span id="answerGroup">—</span></div>
+      </div>
+
+      <footer class="flex items-center justify-between">
+        <div>分數: <span id="score" class="font-medium">0</span></div>
+        <div class="text-sm text-gray-500">鍵盤：按 1/2/3 回答</div>
+      </footer>
+
+      <div id="completedPanel" class="mt-4 p-4 rounded-lg bg-yellow-50 text-center hidden">
+        <div class="text-lg font-semibold">完成所有題目！</div>
+        <div class="mt-2">你的分數： <span id="finalScore">0</span> / <span id="finalTotal">0</span></div>
+        <div class="mt-3">
+          <button id="tryAgainBtn" class="px-4 py-2 rounded-lg bg-blue-600 text-white">再試一次</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    // 動詞資料（ます形 + 分組）
+    const VERBS = [
+      { masu: "はたらきます", group: 1 },
+      { masu: "おきます", group: 2 },
+      { masu: "ねます", group: 2 },
+      { masu: "いきます", group: 1 },
+      { masu: "べんきょうします", group: 3 },
+      { masu: "きます", group: 3 },
+      { masu: "たべます", group: 2 },
+      { masu: "のみます", group: 1 },
+      { masu: "みます", group: 2 },
+      { masu: "よみます", group: 1 },
+      { masu: "かきます", group: 1 },
+      { masu: "かいます", group: 1 },
+      { masu: "します", group: 3 },
+      { masu: "かします", group: 1 },
+      { masu: "かります", group: 2 },
+      { masu: "わかります", group: 1 },
+      { masu: "あります", group: 1 },
+      { masu: "います", group: 2 },
+      { masu: "あそびます", group: 1 },
+      { masu: "およぎます", group: 1 },
+      { masu: "でます", group: 2 },
+      { masu: "かいものします", group: 3 },
+      { masu: "つけます", group: 2 },
+      { masu: "けします", group: 1 },
+      { masu: "あけます", group: 2 },
+      { masu: "しめます", group: 2 },
+      { masu: "いそぎます", group: 1 },
+      { masu: "まちます", group: 1 },
+      { masu: "とめます", group: 2 },
+      { masu: "もちます", group: 1 },
+      { masu: "とります", group: 1 },
+      { masu: "てつだいます", group: 1 },
+      { masu: "よびます", group: 1 },
+      { masu: "はなします", group: 1 },
+      { masu: "みせます", group: 2 },
+      { masu: "おしえます", group: 2 },
+      { masu: "コピーします", group: 3 }
+    ];
+
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    // state
+    let deck = shuffle(VERBS);
+    let index = 0;
+    let score = 0;
+    let lastResult = null; // { correct: bool, correctGroup: number }
+    let showAnswer = false;
+    let completed = false;
+
+    // DOM refs
+    const currentVerbEl = document.getElementById('currentVerb');
+    const progressEl = document.getElementById('progress');
+    const scoreEl = document.getElementById('score');
+    const lastResultContainer = document.getElementById('lastResultContainer');
+    const answerPanel = document.getElementById('answerPanel');
+    const answerGroupEl = document.getElementById('answerGroup');
+    const completedPanel = document.getElementById('completedPanel');
+    const finalScoreEl = document.getElementById('finalScore');
+    const finalTotalEl = document.getElementById('finalTotal');
+
+    function render() {
+      if (!deck || deck.length === 0) return;
+      progressEl.textContent = `題目 ${index + 1} / ${deck.length}`;
+
+      if (completed) {
+        currentVerbEl.textContent = '—';
+        completedPanel.classList.remove('hidden');
+        finalScoreEl.textContent = score;
+        finalTotalEl.textContent = deck.length;
+        answerPanel.classList.add('hidden');
+        return;
+      } else {
+        completedPanel.classList.add('hidden');
+      }
+
+      const current = deck[index];
+      currentVerbEl.textContent = current.masu;
+      scoreEl.textContent = score;
+
+      if (lastResult) {
+        lastResultContainer.innerHTML = '';
+        const box = document.createElement('div');
+        box.className = 'inline-block px-4 py-3 rounded-lg ' + (lastResult.correct ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800');
+        box.textContent = lastResult.correct ? '答對！' : `答錯了。正確分組為 ${lastResult.correctGroup}`;
+        lastResultContainer.appendChild(box);
+      } else {
+        lastResultContainer.innerHTML = '';
+      }
+
+      if (showAnswer) {
+        answerGroupEl.textContent = current.group;
+        answerPanel.classList.remove('hidden');
+      } else {
+        answerPanel.classList.add('hidden');
+      }
+    }
+
+    function handleAnswer(group) {
+      if (completed) return;
+      const current = deck[index];
+      const correct = current.group === group;
+      lastResult = { correct, correctGroup: current.group };
+      if (correct) score += 1;
+      showAnswer = true;
+      render();
+    }
+
+    function nextCard() {
+      if (completed) return;
+      if (index + 1 >= deck.length) {
+        completed = true;
+        render();
+        return;
+      }
+      index += 1;
+      lastResult = null;
+      showAnswer = false;
+      render();
+    }
+
+    function restart() {
+      deck = shuffle(VERBS);
+      index = 0;
+      score = 0;
+      lastResult = null;
+      showAnswer = false;
+      completed = false;
+      render();
+    }
+
+    // button hooks
+    document.getElementById('btn1').addEventListener('click', () => handleAnswer(1));
+    document.getElementById('btn2').addEventListener('click', () => handleAnswer(2));
+    document.getElementById('btn3').addEventListener('click', () => handleAnswer(3));
+    document.getElementById('nextBtn').addEventListener('click', nextCard);
+    document.getElementById('toggleAnswerBtn').addEventListener('click', () => {
+      showAnswer = !showAnswer;
+      render();
+    });
+    document.getElementById('restartBtn').addEventListener('click', restart);
+    document.getElementById('tryAgainBtn').addEventListener('click', restart);
+
+    // keyboard shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (e.key === '1' || e.key === '2' || e.key === '3') {
+        handleAnswer(Number(e.key));
+      }
+      if (e.key === ' ') {
+        e.preventDefault();
+        nextCard();
+      }
+    });
+
+    // initial render
+    render();
+  </script>
+</body>
+</html>
